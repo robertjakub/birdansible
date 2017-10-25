@@ -1,0 +1,143 @@
+{% import 'macros.j2' as tmacro with context -%}
+{% if mtype == 'ipv4' %}{% set deflimit = deflimit4 %}{% else %}{% set deflimit = deflimit6 %}{% endif %}
+{% set prefixcache = cache['prefixes'][mtype] -%}
+{% set macrocache = cache['macros'] -%}
+
+{% set phostcache = [] %}
+{% if cachehost in cache['host'] %}
+{% if mtype in cache['host'][cachehost] %}{% set phostcache = cache['host'][cachehost][mtype] %}{% endif %}
+{% endif %}
+
+{% set tables = [] %}
+{% for p in peers %}
+{% set peer = peers[p] -%}
+{% if 'proto' in peer %}{% set ptype = peer['proto'] %}{% else %}{% set ptype = 'ipv4' %}{% endif -%}
+{% if 'table' in peer %}{% set table = peer['table'] %}{% else %}{% set table = p %}{% endif %}
+{% if ptype == mtype %}
+{% do tables.append(table) %}
+{% endif %}
+{% endfor %}
+{% for t in tables|unique %}
+table T{{ t }}
+{% endfor %}
+
+{% for f in phostcache %}{% if f in prefixcache %}
+function P{{ f }}()
+prefix set nets;
+{
+  nets = [ {% for p in prefixcache[f] %}{{ p }}+{% if not loop.last %}, {% endif %}{% endfor %} ];
+  return (net ~ nets);
+}
+
+{% endif %}{% endfor %}
+
+{% for p in peers -%}
+{% set peer = peers[p] -%}
+{% if 'proto' in peer %}{% set ptype = peer['proto'] %}{% else %}{% set ptype = 'ipv4' %}{% endif -%}
+{% if ptype == mtype -%}
+{% if 'flags' in peer %}{% set flags = peer['flags'] %}{% else %}{% set flags = [] %}{% endif -%}
+{% if 'macro' not in peer %}{% set mpeer = False %}{% else %}{% set mpeer = True %}{% endif -%}
+{% set create = False %}
+{% if mpeer %}
+{% set create = True %}
+{% if peer['macro'] not in macrocache %}{% set create = False %}{% endif %}
+{% endif %}
+{% if 'no-filter' in flags or 'reject' in flags %}{% set create = True %}{% endif %}
+{% if create %}
+{% if 'table' in peer %}{% set table = peer['table'] %}{% else %}{% set table = p %}{% endif %}
+{% if 'limit' in peer %}{% set limit = peer['limit'] %}{% else %}{% set limit = deflimit %}{% endif %}
+filter F{{ p }} {
+{% if 'no-nexthop-check' not in flags %}
+  if is_nexthop_false() then reject;
+{% endif %}
+  if !defined (bgp_med) then bgp_med = 0;
+  if ({{ myasn }},64512) ~ bgp_community then reject;
+  if (0,{{ myasn }}) ~ bgp_community then bgp_local_pref = 97;
+{% if 'group' in peer %}
+{% for g in peer['group'] %}
+{% if g in bgpgroups %}
+  bgp_community.add(({{ bgpgroups[g] | replace(':', ',') }}));
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if peer['asn'] == myasn %}
+  if bgp_path ~ [= =] then
+    bgp_path.prepend(myas);
+{% endif %}
+{% if 'no-filter' in flags and not 'reject' in flags %}
+  accept;
+{% elif 'reject' in flags %}
+  reject;
+{% else %}
+  case bgp_path.last {
+{% for a in macrocache[peer['macro']] %}
+{% if a in phostcache %}{% if a in prefixcache %}
+    {{ a }}: if P{{ a }}() then accept;
+{% endif %}{% endif %}
+{% endfor %}
+  }
+  reject;
+{% endif %}
+}
+
+{% if 'bgp_out' in peer %}
+{% include peer['bgp_out']['file'] %}
+{% else %}
+{% if 'rejectpeer' in peer %}
+{{ tmacro.bgp_out('bgp_out_' + p, peer['rejectpeer']) }}
+{% endif %}
+{% endif %}
+
+protocol pipe M{{ p }} {
+  description "{{ peer['description'] }}";
+  table master;
+  peer table T{{ table }};
+  mode transparent;
+  import filter F{{ p }};
+  export where is_allowed({{ peer['asn'] }});
+}
+
+protocol bgp R{{ p }} {
+  description "{{ peer['description'] }}";
+  local as myas;
+  debug {events, states};
+  neighbor {{ peer['ip'] }} as {{ peer['asn'] }};
+  import limit {{ limit }};
+{% if 'disable' in flags %}
+  disabled;
+{% endif %}
+{% if peer['asn'] == myasn %}
+  direct;
+{% endif %}
+{% if 'multihop' in peer %}
+  multihop {{ peer['multihop'] }};
+{% endif %}
+{% if 'no-passive' in flags %}
+  passive off;
+{% else %}
+  passive on;
+{% endif %}
+{% if not 'no-rs' in flags %}
+  rs client;
+{% endif %}
+  prefer older on;
+  table T{{ table }};
+{% if mtype == 'ipv4' %}
+  next hop keep;
+{% else %}
+  missing lladdr ignore;
+{% endif %}
+  import where is_not_martian();
+{% if 'rejectpeer' in peer %}{% set outf = 'bgp_out_' + p %}{% else %}{% set outf = 'bgp_out' %}{% endif %}
+{% if 'bgp_out' in peer %}{% set outf = peer['bgp_out']['name'] %}{% endif %}
+{% if 'prepend' in flags %}
+  export where {{ outf }}(1);
+{% else %}
+  export where {{ outf }}(0);
+{% endif %}
+  error wait time 60,864000;
+}
+
+{% endif %}
+{% endif %}
+{% endfor %}

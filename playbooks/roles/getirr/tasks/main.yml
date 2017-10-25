@@ -1,0 +1,66 @@
+---
+- name: touch cache file
+  file:
+    path: "{{ cache_file }}"
+    state: touch
+    mode: "u=rw,g=r,o=r"
+- name: touch irr
+  file:
+    path: "{{ temp_dir }}/{{ irrcache[item]['file']}}"
+    state: touch
+    mode: "u=rw,g=r,o=r"
+  with_items: "{{ irrcache }}"
+- name: create cache dir
+  file:
+    path: "{{ cache_path }}"
+    state: directory
+    mode: "u=rwx,g=rx,o=rx"
+- name: check for irr file (cache_path)
+  stat:
+    path: "{{ cache_path }}/{{ irrcache[item]['file']}}"
+    get_md5: no
+  register: cacheirr
+  with_items: "{{ irrcache }}"
+- name: set facts (irr files)
+  set_fact:
+    irrcmd1="{{ cacheirr.results | map(attribute='item') | list}}"
+    irrcmd2="{{ cacheirr.results | map(attribute='stat.exists') | list}}"
+- name: copy irr files to repo
+  copy:
+    src: "{{ cache_path }}/{{ irrcache[item.0]['file']}}"
+    dest: "{{ temp_dir }}/{{ irrcache[item.0]['file']}}"
+    mode: "u=rw,g=r,o=r"
+  when: item.1 == True
+  with_together:
+    - "{{ irrcmd1 }}"
+    - "{{ irrcmd2 }}"
+- name: fetch irr
+  get_url:
+    url: "{{ irrcache[item.0]['url'] }}"
+    dest: "{{ temp_dir }}/{{ irrcache[item.0]['dest'] }}.gz"
+    mode: "u=r,g=r,o=r"
+  when: item.1 == False
+  with_together:
+    - "{{ irrcmd1 }}"
+    - "{{ irrcmd2 }}"
+- name: unpack irr
+  command: gzip -fd "{{ temp_dir }}/{{ irrcache[item.0]['dest'] }}.gz"
+  when: item.1 == False
+  with_together:
+    - "{{ irrcmd1 }}"
+    - "{{ irrcmd2 }}"
+- name: parse irr
+  command: bin/irrcache.py irr --"{{ irrcache[item.0]['proto'] }}" "{{ temp_dir }}/{{ irrcache[item.0]['dest'] }}" "{{ temp_dir }}/{{ irrcache[item.0]['file'] }}"
+  when: item.1 == False
+  with_together:
+    - "{{ irrcmd1 }}"
+    - "{{ irrcmd2 }}"
+- name: copy irr files to cache
+  copy:
+    src: "{{ temp_dir }}/{{ irrcache[item.0]['file']}}"
+    dest: "{{ cache_path }}/{{ irrcache[item.0]['file']}}"
+    mode: "u=r,g=r,o=r"
+  when: item.1 == False
+  with_together:
+    - "{{ irrcmd1 }}"
+    - "{{ irrcmd2 }}"

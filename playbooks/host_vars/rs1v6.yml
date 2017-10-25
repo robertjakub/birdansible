@@ -1,0 +1,15 @@
+---
+routerid: 192.0.2.1
+listenip: 2001:DB8::6:4496:1
+listenport: 179
+mtype: ipv6
+mrtdump: /network/bird6.mrtdump
+netmaxlen: 19
+netminlen: 48
+peers_file: rs1.yml
+cachehost: rs1
+host_config_file: /opt/bird/etc/dev-bird6.conf
+
+# isallowed() variables
+peeraddcomm: {}
+peerreject: {}

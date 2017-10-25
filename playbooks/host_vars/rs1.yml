@@ -1,0 +1,23 @@
+---
+routerid: 192.0.2.1
+listenip: 192.0.2.1
+listenport: 179
+mtype: ipv4
+mrtdump: /network/bird.mrtdump
+bhnexthop: 192.0.2.255
+netmaxlen: 8
+netminlen: 25
+peers_file: rs1.yml
+cachehost: rs1
+host_config_file: /opt/bird/etc/dev-bird.conf
+
+# isallowed() variables
+peeraddcomm:
+  64497:
+    - "64499:9"
+peerreject:
+  cdn:
+    community: "0:65001"
+    asn:
+      - 64498
+      - 64499

@@ -1,0 +1,53 @@
+---
+- name: Clean up and create directories for each host
+  hosts: all
+  connection: local
+  gather_facts: no
+  tasks:
+    - import_tasks: tasks/set_facts.yml
+    - name: remove host build temp directory
+      file: path={{ build_dir }} state=absent
+      ignore_errors: yes
+    - name: create host build temp directory
+      file: path={{ build_dir }} state=directory
+    - name: remove final config directory
+      file: path={{ config_dir }} state=absent
+      ignore_errors: yes
+    - name: create final config directory
+      file: path={{ config_dir }} state=directory
+
+- name: Sanity checks
+  hosts: all
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Check peer file
+      command: yamllint -c ../yamllint.rc "{{ peers_dir }}/{{ peers_file }}"
+      register: command_result
+      changed_when: "command_result.rc != 0"
+
+- name: Build Configurations -- Common
+  hosts: all
+  connection: local
+  gather_facts: no
+  roles:
+    - common
+
+- name: Create final Configuration
+  hosts: all
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: assembling configurations
+      assemble: src={{ build_dir }} dest={{ config_file }}
+
+- name: Check final Configuration
+  hosts: all
+  connection: local
+  any_errors_fatal: true
+  gather_facts: no
+  tasks:
+    - name: check
+      command: "{{ bird }} -c {{ config_file }} -p"
+      register: command_result
+      changed_when: "command_result.rc != 0"

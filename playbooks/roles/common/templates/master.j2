@@ -1,0 +1,101 @@
+{% import 'macros.j2' as tmacro with context -%}
+timeformat base     iso long;
+timeformat log      iso long;
+timeformat protocol iso long;
+timeformat route    iso long;
+
+log syslog all;
+#log syslog { debug, trace, info, remote, warning, error, auth, fatal, bug };
+#log stderr all;
+#log "/network/bird.log" all;
+
+router id {{ routerid }};
+listen bgp address {{ listenip }} port {{ listenport }};
+define myas = {{ myasn }};
+define maxv4 = {{ deflimit4 }};
+define maxv6 = {{ deflimit6 }};
+
+#mrtdump "{{ mrtdump }}";
+
+protocol device {
+        scan time 10;           # Scan interfaces every 10 seconds
+}
+
+protocol kernel {
+  disabled;
+  import all;             # Default is import all
+  export all;             # Default is export none
+  scan time 10;           # Scan kernel tables every 10 seconds
+}
+
+function is_allowed(int peeras)
+{
+  if ! (source = RTS_BGP ) then return false;
+  if (65535,65281) ~ bgp_community then return false;
+  if (65535,65282) ~ bgp_community then return false;
+  bgp_community.add(({{ myasn }},64512));
+  if ( peeras = myas ) then return true;
+{% for pc in peeraddcomm %}
+{% for cpc in peeraddcomm[pc] %}
+  if ( peeras = {{ pc }} ) then
+    bgp_community.add(({{ cpc | replace(':', ',') }}));
+{% endfor %}
+{% endfor %}
+{% for pc in peerreject %}
+{% set pre = peerreject[pc] %}
+{% set prc = pre['community'] %}
+{% for entry in pre['asn'] %}
+  if ( peeras = {{ entry }} ) then
+    if ({{ prc | replace(':', ',') }}) ~ bgp_community then return false;
+{% endfor %}
+{% endfor %}
+  if ( peeras < 65536 ) then {
+    if (0,peeras) ~ bgp_community then return false;
+    if (myas,peeras) ~ bgp_community then return true;
+  }
+  if (0, myas) ~ bgp_community then return false;
+  return true;
+}
+
+function is_martian()
+prefix set martians;
+{
+{% if mtype == 'ipv4' %}
+  martians = [ 169.254.0.0/16+, 172.16.0.0/12+, 192.168.0.0/16+, 10.0.0.0/8+, 224.0.0.0/4+, 240.0.0.0/4+ ];
+  if net.ip = 0.0.0.0 then return true;
+{% elif mtype == 'ipv6' %}
+  martians = [ 3ffe::/16+, 2001:db8::/32+, 2001::/33+, 2002::/17+, ::/8+,  fe00::/9+, ff00::/8+ ];
+  if net.ip = :: then return true;
+{% endif %}
+  if net ~ martians then return true;
+{% if mtype == 'ipv4' %}
+  if (bgp_next_hop = {{ bhnexthop }}) then {
+    bgp_community.add(({{ myasn }},64513));
+    return false;
+  }
+  if (myas, 997) ~ bgp_community then {
+    bgp_community.add(({{ myasn }},64513));
+    bgp_community.delete(({{ myasn }},997));
+    return false;
+  }
+{% endif %}
+  if (net.len < {{ netmaxlen }}) || (net.len > {{ netminlen }}) then return true;
+  return false;
+}
+
+function is_not_martian()
+{
+  if is_martian() then return false;
+  return true;
+}
+
+{{ tmacro.bgp_out('bgp_out') }}
+
+function is_nexthop_false()
+{
+{% if mtype == 'ipv4' %}
+  if (bgp_next_hop = {{ bhnexthop }}) then return false;
+{% endif %}
+  if (from != bgp_next_hop) then return true;
+  return false;
+}

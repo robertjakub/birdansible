@@ -1,0 +1,12 @@
+---
+- name: Check Configurations
+  hosts: all
+  gather_facts: no
+  connection: local
+  any_errors_fatal: true
+  tasks:
+    - import_tasks: tasks/set_facts.yml
+    - name: check
+      command: "{{ bird }} -c {{ config_file }} -p"
+      register: command_result
+      changed_when: "command_result.rc != 0"

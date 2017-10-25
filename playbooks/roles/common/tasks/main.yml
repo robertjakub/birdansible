@@ -1,0 +1,21 @@
+---
+
+- name: System Configuration
+  template: src=master.j2 dest={{ build_dir }}/01system.part mode=400
+  tags:
+    - common
+    - authentication
+
+- include_vars:
+    file: "{{ peers_dir }}/{{ peers_file }}"
+    name: peers
+
+- include_vars:
+    file: "{{ cache_file }}"
+    name: cache
+
+- name: Peers Configuration
+  template: src=peers.j2 dest={{ build_dir }}/11peers.part mode=400
+  tags:
+    - common
+    - authentication

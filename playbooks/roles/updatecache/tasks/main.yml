@@ -1,0 +1,26 @@
+---
+- name: touch cache file
+  file:
+    path: "{{ cache_file }}"
+    state: touch
+    mode: "u=rw,g=r,o=r"
+- name: touch addon file
+  file:
+    path: "{{ addon_file }}"
+    state: touch
+    mode: "u=rw,g=r,o=r"
+- name: touch irr
+  file:
+    path: "{{ temp_dir }}/{{ irrcache[item]['file']}}"
+    state: touch
+    mode: "u=rw,g=r,o=r"
+  with_items: "{{ irrcache }}"
+- name: set irr fact
+  set_fact: irr_item="-c {{ temp_dir }}/{{ irrcache[item]['file'] }}"
+  with_items: "{{ irrcache }}"
+  register: irr_result
+- name: make an irr cmdline
+  set_fact: irrcmd="{{ irr_result.results | map(attribute='ansible_facts.irr_item') | list }}"
+- name: make a cache
+  command: bin/irrcache.py cache {{ irrcmd | join(' ') }} -u {{ cache_file }} -h {{ item }} -a {{ addon_file }} {{ peers_dir }}{{ peerfiles[item] }} {{ cache_file }}
+  with_items: "{{ peerfiles }}"

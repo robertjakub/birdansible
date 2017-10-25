@@ -1,0 +1,38 @@
+12741x1:
+  asn: 12741
+  description: Netia
+  ip: 2001:DB8::1:2741:1
+  macro: AS-NETIA
+  proto: ipv6
+232_105x1:
+  asn: 12741
+  description: Netia
+  ip: 192.0.2.105
+  macro: AS-NETIA
+232_107x1:
+  asn: 48136
+  description: project2
+  group:
+  - remote
+  ip: 192.0.2.107
+  macro: AS48136
+232_231x1:
+  asn: 64450
+  description: CSP
+  ip: 192.0.2.231
+  macro: AS64450
+  rejectpeer:
+  - 5617
+  - 6939
+  - 57463
+232_241x1:
+  asn: 64450
+  description: CSP
+  ip: 192.0.2.241
+  macro: AS64450
+  rejectpeer:
+  - 5617
+  - 6939
+  - 57463
+  flags:
+  - reject

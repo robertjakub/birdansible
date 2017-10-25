@@ -1,0 +1,37 @@
+---
+- name: Check Configurations
+  hosts: all
+  gather_facts: no
+  connection: local
+  any_errors_fatal: true
+  tasks:
+    - import_task: tasks/set_facts.yml
+    - name: check
+      command: "{{ bird }} -c {{ config_file }} -p"
+      register: command_result
+      changed_when: "command_result.rc != 0"
+- name: Deploy Configurations
+  hosts: all
+  become: yes
+  user: ixp
+  gather_facts: no
+  any_errors_fatal: true
+  tasks:
+    - name: Copy configuration
+      copy:
+        src: "{{ config_file }}"
+        dest: "{{ host_config_file }}"
+    - name: Ensure file permissions
+      file:
+        path: "{{ host_config_file }}"
+        owner: root
+        group: bird
+        mode: 0644
+    - name: Reload configuration (file)
+      command: "echo {{ birdc }} configure soft"
+      register: command_result
+      changed_when: "command_result.rc != 0"
+    - name: Reload protocols
+      command: "echo {{ birdc }} reload all"
+      register: command_result
+      changed_when: "command_result.rc != 0"

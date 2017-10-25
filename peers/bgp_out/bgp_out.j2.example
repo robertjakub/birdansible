@@ -1,0 +1,14 @@
+function bgp_out_own(int prep)
+{
+  if (prep = 1) then bgp_path.prepend(myas);
+  bgp_community.delete(({{ myasn }},64512));
+{% if mtype == 'ipv4' %}
+  if (myas, 64513) ~ bgp_community then {
+    bgp_community.delete(({{ myasn }},64513));
+    bgp_community.add((65535, 65281));
+    bgp_next_hop = {{ bhnexthop }};
+  }
+{% endif %}
+  if !defined (bgp_med) then bgp_med = 0;
+  return true;
+}

@@ -1,0 +1,25 @@
+---
+cache_path: /Users/robert/network/cache
+
+# Default System Parameters
+myasn: 64496
+deflimit4: 100000
+deflimit6: 10000
+
+bgpgroups:
+  remote: 64496:64520
+
+irrcache:
+  ripe-route:
+    url: ftp://ftp.ripe.net/ripe/dbase/split/ripe.db.route.gz
+    file: irr-ripe4.yml
+    dest: db.route
+    proto: v4
+  ripe-route6:
+    url: ftp://ftp.ripe.net/ripe/dbase/split/ripe.db.route6.gz
+    file: irr-ripe6.yml
+    dest: db.route6
+    proto: v6
+
+peerfiles:
+  rs1: rs1.yml

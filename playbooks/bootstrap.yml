@@ -1,0 +1,14 @@
+---
+- name: bootstrap router
+  hosts: all
+  gather_facts: false
+  user: ixp
+  become: yes
+  tasks:
+    - name: Remove requiretty (sudoers)
+      replace:
+        regexp="^Defaults\s+requiretty$"
+        replace="# Defaults    requiretty"
+        dest="/etc/sudoers"
+  vars:
+    ansible_ssh_pipelining: no

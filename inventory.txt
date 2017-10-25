@@ -1,0 +1,9 @@
+[all:children]
+all-v4
+all-v6
+
+[all-v4]
+rs1
+
+[all-v6]
+rs1v6
