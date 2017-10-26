@@ -5,6 +5,10 @@ cache_path: /Users/robert/network/cache
 myasn: 64496
 deflimit4: 100000
 deflimit6: 10000
+precheck_config: True
+
+peeraddcomm: {}
+peerreject: {}
 
 bgpgroups:
   remote: 64496:64520

@@ -10,6 +10,7 @@ netminlen: 25
 peers_file: rs1.yml
 cachehost: rs1
 host_config_file: /opt/bird/etc/dev-bird.conf
+precheck_config: False
 
 # isallowed() variables
 peeraddcomm:

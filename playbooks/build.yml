@@ -51,3 +51,4 @@
       command: "{{ bird }} -c {{ config_file }} -p"
       register: command_result
       changed_when: "command_result.rc != 0"
+      when: "precheck_config"
